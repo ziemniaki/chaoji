@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extreme Emoji Sound Chaos</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            cursor: pointer;
+        }
+        .emoji {
+            position: absolute;
+            font-size: 24px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        #start-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            font-size: 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <button id="start-button">Start Chaos</button>
+
+    <script>
+        const emojis = ['🍎', '🍊', '🍇', '🍉', '🍓', '🍒', '🍍', '🥝', '🍅', '🥥', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🐮', '🐷', '🐸', '🐵', '🐧', '🐦', '🐤', '🐺', '🐴', '🦄'];
+        const container = document.getElementById('container');
+        const startButton = document.getElementById('start-button');
+        let audioCtx, masterGain, chaoticOscillator, chaosGain;
+        const maxEmojis = 500;
+        const emojiElements = [];
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            
+            // Create a global chaotic oscillator
+            chaoticOscillator = audioCtx.createOscillator();
+            chaoticOscillator.type = 'sine';
+            chaoticOscillator.frequency.setValueAtTime(0.5, audioCtx.currentTime); // Slow modulation
+
+            chaosGain = audioCtx.createGain();
+            chaosGain.gain.setValueAtTime(100, audioCtx.currentTime); // Modulation depth
+            
+            chaoticOscillator.connect(chaosGain);
+            chaosGain.connect(masterGain);
+            
+            chaoticOscillator.start();
+        }
+
+        function createEmoji() {
+            const emoji = document.createElement('div');
+            emoji.className = 'emoji';
+            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            emoji.style.left = `${Math.random() * 100}vw`;
+            emoji.style.top = `${Math.random() * 100}vh`;
+            container.appendChild(emoji);
+            emojiElements.push(emoji);
+
+            if (emojiElements.length > maxEmojis) {
+                const removed = emojiElements.shift();
+                removed.remove();
+            }
+
+            moveEmoji(emoji);
+            createSound();
+        }
+
+        function moveEmoji(emoji) {
+            const move = () => {
+                const chaosModulation = chaosGain.gain.value * Math.sin(audioCtx.currentTime * 2 * Math.PI * chaoticOscillator.frequency.value);
+                
+                emoji.style.left = `${(Math.random() * 100 + chaosModulation) % 100}vw`;
+                emoji.style.top = `${(Math.random() * 100 + chaosModulation) % 100}vh`;
+                emoji.style.transform = `scale(${(Math.random() * 2 + 0.5) * (1 + chaosModulation / 100)}) rotate(${(Math.random() * 360 + chaosModulation) % 360}deg)`;
+                createClick();
+                setTimeout(move, Math.random() * 1000 + 100);
+            };
+            move();
+        }
+
+        function createSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'square';  // Random pitch square wave
+            oscillator.frequency.setValueAtTime(Math.random() * 1000 + 200, audioCtx.currentTime + chaosGain.gain.value * Math.sin(audioCtx.currentTime * chaoticOscillator.frequency.value));
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(masterGain);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function createClick() {
+            const clickOsc = audioCtx.createOscillator();
+            const clickGain = audioCtx.createGain();
+            
+            clickOsc.type = 'square';  // Square wave for click sound
+            clickOsc.frequency.setValueAtTime(Math.random() * 19950 + 50, audioCtx.currentTime); // Random pitch between 50 Hz and 20 kHz
+            
+            clickGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            clickGain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.05);
+
+            clickOsc.connect(clickGain);
+            clickGain.connect(masterGain);
+            
+            clickOsc.start();
+            clickOsc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function startChaos() {
+            if (!audioCtx) initAudio();
+            startButton.style.display = 'none';
+            setInterval(createEmoji, 50);  // Create a new emoji every 50ms
+        }
+
+        startButton.addEventListener('click', startChaos);
+    </script>
+</body>
+</html>
