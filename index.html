@@ -3,139 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extreme Emoji Sound Chaos</title>
+    <title>Glitch Flappy Chaos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/addons/p5.sound.min.js"></script>
     <style>
-        body {
+        html, body {
             margin: 0;
+            padding: 0;
             overflow: hidden;
-            background-color: #000;
-            cursor: pointer;
-        }
-        .emoji {
-            position: absolute;
-            font-size: 24px;
-            transition: all 0.2s;
-            user-select: none;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            color: white;
         }
         #start-button {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 20px;
+            padding: 20px 40px;
             font-size: 24px;
-            background-color: #4CAF50;
-            color: white;
+            background: #ff0055;
             border: none;
+            color: #fff;
             cursor: pointer;
-            z-index: 1000;
+            z-index: 10;
         }
+        canvas { display: block; }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-    <button id="start-button">Start Chaos</button>
-
+    <button id="start-button">ENTER CHAOS</button>
     <script>
-        const emojis = ['🍎', '🍊', '🍇', '🍉', '🍓', '🍒', '🍍', '🥝', '🍅', '🥥', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🐮', '🐷', '🐸', '🐵', '🐧', '🐦', '🐤', '🐺', '🐴', '🦄'];
-        const container = document.getElementById('container');
-        const startButton = document.getElementById('start-button');
-        let audioCtx, masterGain, chaoticOscillator, chaosGain;
-        const maxEmojis = 500;
-        const emojiElements = [];
+        let ctx, master, drumPart;
+        let shapes = [];
+        let bird, vel = 0, gravity = 0.6;
+        let pipes = [];
+        let frameGap = 90;
+        let gameStarted = false;
 
-        function initAudio() {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = audioCtx.createGain();
-            masterGain.connect(audioCtx.destination);
-            masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            
-            // Create a global chaotic oscillator
-            chaoticOscillator = audioCtx.createOscillator();
-            chaoticOscillator.type = 'sine';
-            chaoticOscillator.frequency.setValueAtTime(0.5, audioCtx.currentTime); // Slow modulation
-
-            chaosGain = audioCtx.createGain();
-            chaosGain.gain.setValueAtTime(100, audioCtx.currentTime); // Modulation depth
-            
-            chaoticOscillator.connect(chaosGain);
-            chaosGain.connect(masterGain);
-            
-            chaoticOscillator.start();
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            colorMode(HSB, 360, 100, 100, 255);
+            noStroke();
+            bird = createVector(width * 0.2, height / 2);
         }
 
-        function createEmoji() {
-            const emoji = document.createElement('div');
-            emoji.className = 'emoji';
-            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-            emoji.style.left = `${Math.random() * 100}vw`;
-            emoji.style.top = `${Math.random() * 100}vh`;
-            container.appendChild(emoji);
-            emojiElements.push(emoji);
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            bird.x = width * 0.2;
+        }
 
-            if (emojiElements.length > maxEmojis) {
-                const removed = emojiElements.shift();
-                removed.remove();
+        function draw() {
+            background(0, 20);
+            for (let i = 0; i < 5; i++) {
+                shapes.push({
+                    x: random(width),
+                    y: random(height),
+                    size: random(20, 200),
+                    h: random(360),
+                    a: random(120, 200),
+                    vx: random(-2, 2),
+                    vy: random(-2, 2)
+                });
+            }
+            shapes = shapes.slice(-400);
+            shapes.forEach(s => {
+                s.x += s.vx;
+                s.y += s.vy;
+                fill(s.h, 80, 100, s.a);
+                ellipse(s.x, s.y, s.size * random(0.5, 1.5), s.size);
+            });
+
+            if (!gameStarted) return;
+
+            // create pipes
+            if (frameCount % frameGap === 0) {
+                pipes.push({
+                    x: width,
+                    gap: random(height * 0.2, height * 0.6),
+                    w: 60,
+                    open: 140
+                });
+            }
+            // update pipes
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const p = pipes[i];
+                p.x -= 4;
+                fill(120, 40, 40);
+                rect(p.x, 0, p.w, p.gap - p.open / 2);
+                rect(p.x, p.gap + p.open / 2, p.w, height - p.gap);
+                if (p.x + p.w < 0) pipes.splice(i, 1);
             }
 
-            moveEmoji(emoji);
-            createSound();
+            // bird
+            vel += gravity;
+            bird.y += vel;
+            fill(0, 0, 100);
+            ellipse(bird.x, bird.y, 30, 30);
+
+            if (bird.y > height || bird.y < 0) resetGame();
+
+            // collision
+            for (const p of pipes) {
+                if (
+                    bird.x + 15 > p.x && bird.x - 15 < p.x + p.w &&
+                    (bird.y - 15 < p.gap - p.open / 2 || bird.y + 15 > p.gap + p.open / 2)
+                ) {
+                    resetGame();
+                }
+            }
         }
 
-        function moveEmoji(emoji) {
-            const move = () => {
-                const chaosModulation = chaosGain.gain.value * Math.sin(audioCtx.currentTime * 2 * Math.PI * chaoticOscillator.frequency.value);
-                
-                emoji.style.left = `${(Math.random() * 100 + chaosModulation) % 100}vw`;
-                emoji.style.top = `${(Math.random() * 100 + chaosModulation) % 100}vh`;
-                emoji.style.transform = `scale(${(Math.random() * 2 + 0.5) * (1 + chaosModulation / 100)}) rotate(${(Math.random() * 360 + chaosModulation) % 360}deg)`;
-                createClick();
-                setTimeout(move, Math.random() * 1000 + 100);
-            };
-            move();
+        function mousePressed() {
+            if (!gameStarted) return;
+            vel = -10;
+            master.amp(0.8, 0.05);
+            master.amp(0.5, 0.2);
         }
 
-        function createSound() {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            oscillator.type = 'square';  // Random pitch square wave
-            oscillator.frequency.setValueAtTime(Math.random() * 1000 + 200, audioCtx.currentTime + chaosGain.gain.value * Math.sin(audioCtx.currentTime * chaoticOscillator.frequency.value));
-            
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
-
-            oscillator.connect(gainNode);
-            gainNode.connect(masterGain);
-            
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.5);
+        function resetGame() {
+            bird.y = height / 2;
+            vel = 0;
+            pipes = [];
         }
 
-        function createClick() {
-            const clickOsc = audioCtx.createOscillator();
-            const clickGain = audioCtx.createGain();
-            
-            clickOsc.type = 'square';  // Square wave for click sound
-            clickOsc.frequency.setValueAtTime(Math.random() * 19950 + 50, audioCtx.currentTime); // Random pitch between 50 Hz and 20 kHz
-            
-            clickGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            clickGain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.05);
+        function startSound() {
+            ctx = getAudioContext();
+            master = new p5.Gain();
+            master.connect();
+            master.amp(0.5);
 
-            clickOsc.connect(clickGain);
-            clickGain.connect(masterGain);
-            
-            clickOsc.start();
-            clickOsc.stop(audioCtx.currentTime + 0.05);
+            const kickOsc = new p5.Oscillator('sine');
+            const snareNoise = new p5.Noise('white');
+            const hatNoise = new p5.Noise('white');
+            kickOsc.start();
+            snareNoise.start();
+            hatNoise.start();
+            kickOsc.amp(0);
+            snareNoise.amp(0);
+            hatNoise.amp(0);
+            kickOsc.disconnect();
+            snareNoise.disconnect();
+            hatNoise.disconnect();
+            kickOsc.connect(master);
+            snareNoise.connect(master);
+            hatNoise.connect(master);
+
+            function kick() {
+                kickOsc.freq(60);
+                kickOsc.amp(1, 0.01);
+                kickOsc.amp(0, 0.2);
+            }
+
+            function snare() {
+                snareNoise.amp(0.8, 0.01);
+                snareNoise.amp(0, 0.1);
+            }
+
+            function hat() {
+                hatNoise.amp(0.3, 0.005);
+                hatNoise.amp(0, 0.05);
+            }
+
+            const kickPattern = [1,0,0,0,1,0,0,0];
+            const snarePattern = [0,0,1,0,0,0,1,0];
+            const hatPattern   = [1,1,1,1,1,1,1,1];
+
+            drumPart = new p5.Part();
+            drumPart.setBPM(170);
+            drumPart.addPhrase(new p5.Phrase('k', kick, kickPattern));
+            drumPart.addPhrase(new p5.Phrase('s', snare, snarePattern));
+            drumPart.addPhrase(new p5.Phrase('h', hat, hatPattern));
+            drumPart.loop();
         }
 
-        function startChaos() {
-            if (!audioCtx) initAudio();
-            startButton.style.display = 'none';
-            setInterval(createEmoji, 50);  // Create a new emoji every 50ms
+        function beginChaos() {
+            userStartAudio();
+            startSound();
+            document.getElementById('start-button').style.display = 'none';
+            resetGame();
+            gameStarted = true;
         }
 
-        startButton.addEventListener('click', startChaos);
+        document.getElementById('start-button').addEventListener('click', beginChaos);
     </script>
 </body>
 </html>
